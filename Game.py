@@ -12,6 +12,8 @@ event_chance_value = 0.6
 crisis_chance_value = 0.1
 alliance_chance_value = 0.4
 political_systems = ['dictatorship', 'democracy', 'democracy', 'dictatorship', 'democracy']
+
+# Initialize Q-values
 q_values = np.random.rand(num_countries, num_strategies)
 
 class PoliticalGameSimulation:
@@ -31,9 +33,9 @@ class PoliticalGameSimulation:
         for i in range(num_countries):
             strategy = np.argmax(q_values[i])
             if political_systems[i] == 'dictatorship':
-                payoffs[i] = np.sum(self.resources[i]) * (strategy + 1) / 10
+                payoffs[i] = (np.sum(self.resources[i]) + self.population[i]) * (strategy + 1) / 10
             else:  # democracy
-                payoffs[i] = np.sum(self.resources[i]) * (11 - strategy) / 10
+                payoffs[i] = (np.sum(self.resources[i]) + self.population[i]) * (11 - strategy) / 10
         return payoffs
 
     def update_resources(self):
@@ -51,14 +53,12 @@ class PoliticalGameSimulation:
                 reward + discount_factor * max_future_value)
             q_values[i, strategy] = new_value
 
-            # Strategy change if a key resource is low
             low_resource_idx = np.argmin(self.resources[i])
             if self.resources[i, low_resource_idx] < 20:
                 new_strategy = low_resource_idx % num_strategies
                 q_values[i] = np.zeros(num_strategies)
                 q_values[i, new_strategy] = 1
 
-            # Random events affecting resources
             event_chance = np.random.rand()
             if event_chance > event_chance_value:
                 event_country = np.random.randint(0, num_countries)
@@ -67,28 +67,32 @@ class PoliticalGameSimulation:
                 event_country = np.random.randint(0, num_countries)
                 self.resources[event_country] -= np.random.randint(5, 15, num_resources)
 
-            # Crisis affecting resources
             crisis_chance = np.random.rand()
             if crisis_chance > crisis_chance_value:
                 crisis_country = np.random.randint(0, num_countries)
                 self.resources[crisis_country] -= np.random.randint(5, 15, num_resources)
 
-            # Diplomatic relations affecting resources
             for j in range(num_countries):
                 if self.diplomatic_relations[i, j] > 0:
                     self.resources[i] += np.random.randint(0, 3, num_resources)
                 elif self.diplomatic_relations[i, j] < 0:
                     self.resources[i] -= np.random.randint(0, 3, num_resources)
 
-            # Alliances affecting resources
             for j in range(i+1, num_countries):
                 alliance_chance = np.random.rand()
                 if alliance_chance > alliance_chance_value:
                     self.resources[i] += np.random.randint(1, 4, num_resources)
                     self.resources[j] += np.random.randint(1, 4, num_resources)
 
+    def check_equilibrium(self):
+        equilibria = []
+        for t in range(1, self.iterations):
+            if np.all(self.strategy_history[t] == self.strategy_history[t-1]):
+                equilibria.append(t)
+        return equilibria
+
     def run_simulation(self):
-        for t in range(iterations):
+        for t in range(self.iterations):
             payoffs = self.calculate_payoffs(q_values)
             self.update_resources()
             self.update_strategies(q_values)
@@ -101,16 +105,25 @@ class PoliticalGameSimulation:
 game = PoliticalGameSimulation()
 game.run_simulation()
 
+# Check for Nash equilibria
+equilibria = game.check_equilibrium()
+
 # Plotting
-fig, axs = plt.subplots(4, 1, figsize=(12, 24))
-titles = ['Strategies Over Time', 'Payoffs Over Time', 'Stability Over Time', 'Total Resources Over Time']
-labels = ['Strategy', 'Payoff', 'Stability', 'Total Resources']
+fig, axs = plt.subplots(5, 1, figsize=(12, 30))
+titles = ['Strategies Over Time', 'Payoffs Over Time', 'Stability Over Time', 'Total Resources Over Time', 'Nash Equilibria']
+labels = ['Strategy', 'Payoff', 'Stability', 'Total Resources', 'Equilibrium']
 
 for i, (history, title, label) in enumerate(zip([game.strategy_history, game.payoff_history, game.stability_history, game.total_resources_history], titles, labels)):
     axs[i].plot(history)
     axs[i].set_title(title)
     axs[i].set_xlabel('Iteration')
     axs[i].set_ylabel(label)
+
+# Plotting Nash equilibria
+axs[4].plot(equilibria, [1]*len(equilibria), 'ro')
+axs[4].set_title(titles[-1])
+axs[4].set_xlabel('Iteration')
+axs[4].set_ylabel(labels[-1])
 
 plt.tight_layout()
 plt.show()
