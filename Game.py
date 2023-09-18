@@ -7,20 +7,20 @@ resources_max = 10000
 num_countries = 5
 num_strategies = 10
 num_resources = 4
-event_chance_value = 0.6
-crisis_chance_value = 0.4
+event_chance_value = 0.7
+crisis_chance_value = 0.9
 alliance_chance_value = 0.4
 learning_rate = 0.1
 discount_factor = 0.9
 
 resource_min_initial = 10
-resource_move_min = -100
+resource_move_min = -200
 resource_move_max = 100
-event_resource_change = np.array([5, 15])
-crisis_resource_change = np.array([5, 15])
+event_resource_change = np.array([5, resources_max * 0.03])
+crisis_resource_change = np.array([5, resources_max * 0.05])
 alliance_resource_bonus = np.array([1, 4])
 population_min = 10
-population_max = 50
+population_max = 5000
 diplomatic_min = -1
 diplomatic_max = 2
 strategy_stability_threshold = 5
@@ -72,7 +72,7 @@ class GameSimulation:
                 event_country = np.random.randint(0, num_countries)
                 self.resources[event_country] += np.random.randint(
                     event_resource_change[0], event_resource_change[1], num_resources)
-            elif event_chance < 0.3:
+            elif event_chance < event_chance_value:
                 event_country = np.random.randint(0, num_countries)
                 self.resources[event_country] -= np.random.randint(
                     event_resource_change[0], event_resource_change[1], num_resources)
@@ -114,9 +114,15 @@ class GameSimulation:
 
     def check_equilibrium(self):
         equilibria = []
-        for t in range(1, iterations):
-            if np.all(self.strategy_history[t] == self.strategy_history[t-1]) and np.std(self.payoff_history[t]) < 5:
-                equilibria.append(t)
+        stable_range = 5000
+        for t in range(1, iterations - 100):
+            window = self.payoff_history[t:t+100]
+            for wt in window:
+                max_payoff = np.max(wt)
+                min_payoff = np.min(wt)
+                if max_payoff - min_payoff <= stable_range:
+                    equilibria.append(t)
+                    break
         return equilibria
 
     def run_simulation(self):
@@ -142,6 +148,12 @@ for i, (history, title, label) in enumerate(zip([theory_game.strategy_history, t
     axs[i].set_title(title)
     axs[i].set_xlabel('Iteration')
     axs[i].set_ylabel(label)
+    if title == 'Strategies Over Time':
+
+        axs[i].axhline(9, color='b', linestyle='--',
+                       label='Total Dictatorship')
+        axs[i].axhline(0, color='r', linestyle='--', label='Total Democracy')
+        axs[i].legend()
 
 if len(equilibrio_nash) > 0:
     axs[4].plot(equilibrio_nash, [1]*len(equilibrio_nash), 'ro')
