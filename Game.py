@@ -2,16 +2,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-iterations = 10000
+iterations = 1000
 resources_max = 10000
 num_countries = 5
 num_strategies = 10
 num_resources = 4
-event_chance_value = 0.7
-crisis_chance_value = 0.9
-alliance_chance_value = 0.4
-learning_rate = 0.1
-discount_factor = 0.9
+event_chance_value = 0.4
+crisis_chance_value = 0.7
+alliance_chance_value = 0.6
+learning_rate = 0.7
+discount_factor = 0.8
 
 resource_min_initial = 10
 resource_move_min = -200
@@ -23,8 +23,8 @@ population_min = 10
 population_max = 5000
 diplomatic_min = -1
 diplomatic_max = 2
-strategy_stability_threshold = 5
-resource_stability_threshold = resources_max * 0.4
+strategy_stability_threshold = 10
+resource_stability_threshold = resources_max * 0.6
 
 political_systems = ['dictatorship', 'democracy',
                      'democracy', 'dictatorship', 'democracy']
@@ -46,17 +46,24 @@ class GameSimulation:
             diplomatic_min, diplomatic_max, (num_countries, num_countries))
         self.population = np.random.randint(
             population_min, population_max, num_countries)
+        self.technology_level = np.random.randint(1, 10, num_countries)
+        self.environment_health = np.random.randint(50, 100, num_countries)
 
     def calculate_payoffs(self, q_values):
         payoffs = np.zeros(num_countries)
         for i in range(num_countries):
             strategy = np.argmax(q_values[i])
+            base_payoff = (
+                np.sum(self.resources[i]) + self.population[i]) * (strategy + 1) / 10
+
+            tech_influence = self.technology_level[i] / 10
+            env_influence = self.environment_health[i] / 100
+            payoffs[i] = base_payoff * (1 + tech_influence) * env_influence
+
             if political_systems[i] == 'dictatorship':
-                payoffs[i] = (np.sum(self.resources[i]) +
-                              self.population[i]) * (strategy + 1) / 10
+                payoffs[i] *= 0.9
             else:  # democracy
-                payoffs[i] = (np.sum(self.resources[i]) +
-                              self.population[i]) * (11 - strategy) / 10
+                payoffs[i] *= 1.1
         return payoffs
 
     def update_resources(self):
@@ -64,6 +71,8 @@ class GameSimulation:
             self.resources[i] += np.random.uniform(
                 resource_move_min, resource_move_max, num_resources)
             self.resources[i] = np.clip(self.resources[i], 0, resources_max)
+        self.resources += (self.technology_level[:, np.newaxis] - 5) * 10
+        self.resources -= (100 - self.environment_health[:, np.newaxis]) * 10
 
     def update_events(self):
         for i in range(num_countries):
@@ -97,6 +106,11 @@ class GameSimulation:
                     self.resources[j] += np.random.randint(
                         alliance_resource_bonus[0], alliance_resource_bonus[1], num_resources)
 
+            if np.random.rand() < 0.1:
+                self.technology_level[i] += 1
+            if np.random.rand() < 0.1:
+                self.environment_health[i] -= 1
+
     def update_strategies(self, q_values):
         payoffs = self.calculate_payoffs(q_values)
         for i in range(num_countries):
@@ -112,9 +126,12 @@ class GameSimulation:
                 q_values[i] = np.zeros(num_strategies)
                 q_values[i, new_strategy] = 1
 
+            if np.std(self.payoff_history[-10:, i]) > strategy_stability_threshold * 2:
+                political_systems[i] = 'dictatorship' if political_systems[i] == 'democracy' else 'democracy'
+
     def check_equilibrium(self):
         equilibria = []
-        stable_range = 5000
+        stable_range = 2000
         for t in range(1, iterations - 100):
             window = self.payoff_history[t:t+100]
             for wt in window:
