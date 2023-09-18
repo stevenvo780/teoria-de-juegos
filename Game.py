@@ -1,16 +1,31 @@
+
 import numpy as np
 import matplotlib.pyplot as plt
 
-iterations = 1000
+iterations = 10000
 resources_max = 10000
 num_countries = 5
 num_strategies = 10
 num_resources = 4
 event_chance_value = 0.6
-crisis_chance_value = 0.1
+crisis_chance_value = 0.4
 alliance_chance_value = 0.4
 learning_rate = 0.1
 discount_factor = 0.9
+
+resource_min_initial = 10
+resource_move_min = -100
+resource_move_max = 100
+event_resource_change = np.array([5, 15])
+crisis_resource_change = np.array([5, 15])
+alliance_resource_bonus = np.array([1, 4])
+population_min = 10
+population_max = 50
+diplomatic_min = -1
+diplomatic_max = 2
+strategy_stability_threshold = 5
+resource_stability_threshold = resources_max * 0.4
+
 political_systems = ['dictatorship', 'democracy',
                      'democracy', 'dictatorship', 'democracy']
 q_values = np.random.rand(num_countries, num_strategies)
@@ -22,14 +37,15 @@ labels = ['Strategy', 'Payoff', 'Stability', 'Total Resources', 'Equilibrium']
 class GameSimulation:
     def __init__(self):
         self.resources = np.random.randint(
-            10, resources_max, (num_countries, num_resources)).astype(float)
+            resource_min_initial, resources_max, (num_countries, num_resources)).astype(float)
         self.strategy_history = np.zeros((iterations, num_countries))
         self.payoff_history = np.zeros((iterations, num_countries))
         self.stability_history = np.zeros((iterations, num_countries))
         self.total_resources_history = np.zeros((iterations, num_countries))
         self.diplomatic_relations = np.random.randint(
-            -1, 2, (num_countries, num_countries))
-        self.population = np.random.randint(10, 50, num_countries)
+            diplomatic_min, diplomatic_max, (num_countries, num_countries))
+        self.population = np.random.randint(
+            population_min, population_max, num_countries)
 
     def calculate_payoffs(self, q_values):
         payoffs = np.zeros(num_countries)
@@ -45,7 +61,8 @@ class GameSimulation:
 
     def update_resources(self):
         for i in range(num_countries):
-            self.resources[i] += np.random.uniform(-5, 5, num_resources)
+            self.resources[i] += np.random.uniform(
+                resource_move_min, resource_move_max, num_resources)
             self.resources[i] = np.clip(self.resources[i], 0, resources_max)
 
     def update_events(self):
@@ -54,17 +71,17 @@ class GameSimulation:
             if event_chance > event_chance_value:
                 event_country = np.random.randint(0, num_countries)
                 self.resources[event_country] += np.random.randint(
-                    5, 15, num_resources)
+                    event_resource_change[0], event_resource_change[1], num_resources)
             elif event_chance < 0.3:
                 event_country = np.random.randint(0, num_countries)
                 self.resources[event_country] -= np.random.randint(
-                    5, 15, num_resources)
+                    event_resource_change[0], event_resource_change[1], num_resources)
 
             crisis_chance = np.random.rand()
             if crisis_chance > crisis_chance_value:
                 crisis_country = np.random.randint(0, num_countries)
                 self.resources[crisis_country] -= np.random.randint(
-                    5, 15, num_resources)
+                    crisis_resource_change[0], crisis_resource_change[1], num_resources)
 
             for j in range(num_countries):
                 if self.diplomatic_relations[i, j] > 0:
@@ -75,8 +92,10 @@ class GameSimulation:
             for j in range(i+1, num_countries):
                 alliance_chance = np.random.rand()
                 if alliance_chance > alliance_chance_value:
-                    self.resources[i] += np.random.randint(1, 4, num_resources)
-                    self.resources[j] += np.random.randint(1, 4, num_resources)
+                    self.resources[i] += np.random.randint(
+                        alliance_resource_bonus[0], alliance_resource_bonus[1], num_resources)
+                    self.resources[j] += np.random.randint(
+                        alliance_resource_bonus[0], alliance_resource_bonus[1], num_resources)
 
     def update_strategies(self, q_values):
         payoffs = self.calculate_payoffs(q_values)
@@ -88,16 +107,15 @@ class GameSimulation:
                 reward + discount_factor * max_future_value)
             q_values[i, strategy] = new_value
 
-            low_resource_idx = np.argmin(self.resources[i])
-            if self.resources[i, low_resource_idx] < 20:
-                new_strategy = low_resource_idx % num_strategies
+            if np.std(self.payoff_history[-10:, i]) < strategy_stability_threshold and self.resources[i].mean() < resource_stability_threshold:
+                new_strategy = np.argmin(q_values[i])
                 q_values[i] = np.zeros(num_strategies)
                 q_values[i, new_strategy] = 1
 
     def check_equilibrium(self):
         equilibria = []
         for t in range(1, iterations):
-            if np.all(self.strategy_history[t] == self.strategy_history[t-1]):
+            if np.all(self.strategy_history[t] == self.strategy_history[t-1]) and np.std(self.payoff_history[t]) < 5:
                 equilibria.append(t)
         return equilibria
 
@@ -125,10 +143,15 @@ for i, (history, title, label) in enumerate(zip([theory_game.strategy_history, t
     axs[i].set_xlabel('Iteration')
     axs[i].set_ylabel(label)
 
-axs[4].plot(equilibrio_nash, [1]*len(equilibrio_nash), 'ro')
-axs[4].set_title(titles[-1])
+if len(equilibrio_nash) > 0:
+    axs[4].plot(equilibrio_nash, [1]*len(equilibrio_nash), 'ro')
+else:
+    axs[4].text(0.5, 0.5, 'No Nash Equilibria Found', horizontalalignment='center',
+                verticalalignment='center', fontsize=15, color='red')
+
+axs[4].set_title('Nash Equilibria')
 axs[4].set_xlabel('Iteration')
-axs[4].set_ylabel(labels[-1])
+axs[4].set_ylabel('Equilibrium')
 
 plt.tight_layout()
 plt.show()
