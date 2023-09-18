@@ -15,9 +15,9 @@ game.run_simulation(iterations=iterations, q_values=q_values)
 # Plotting code
 fig, axs = plt.subplots(3, 1, figsize=(12, 18))
 for i, country in enumerate(['Country A (Dictatorship)', 'Country B (Democracy)', 'Country C (Democracy)', 'Country D (Dictatorship)', 'Country E (Democracy)']):
-    axs[0].plot(range(500), game.strategy_history[:, i], label=f'Strategy {country}', marker='o')
-    axs[1].plot(range(500), game.payoff_history[:, i], label=f'Payoff {country}', marker='x')
-    axs[2].plot(range(500), game.stability_history[:, i], label=f'Stability {country}', marker='s')
+    axs[0].plot(range(iterations), game.strategy_history[:, i], label=f'Strategy {country}', marker='o')
+    axs[1].plot(range(iterations), game.payoff_history[:, i], label=f'Payoff {country}', marker='x')
+    axs[2].plot(range(iterations), game.stability_history[:, i], label=f'Stability {country}', marker='s')
 
 axs[0].set_title('Strategies Over Time')
 axs[0].set_xlabel('Iteration')

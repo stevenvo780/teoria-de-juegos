@@ -41,8 +41,9 @@ class PoliticalGameSimulation:
             q_values[i, strategy] = new_value
             
             if self.political_systems[i] == 'dictatorship':
-                q_values[i] = q_values[i] * 0.95
-            
+                # Corrección: Podrías aplicar alguna lógica específica aquí en lugar de fijar q_values[i]
+                pass
+
             # Geopolitical events affecting resources
             event_chance = np.random.rand()
             if event_chance > 0.9:
@@ -57,37 +58,36 @@ class PoliticalGameSimulation:
             if crisis_chance > 0.9:
                 crisis_country = np.random.randint(0, self.num_countries)
                 self.resources[crisis_country] -= np.random.randint(5, 15, self.num_resources)
-            
+
             # Adjust diplomatic relations and its impact
-            for i in range(self.num_countries):
-                for j in range(self.num_countries):
-                    if self.diplomatic_relations[i, j] > 0:
-                        self.resources[i] += np.random.randint(0, 3, self.num_resources)
-                    elif self.diplomatic_relations[i, j] < 0:
-                        self.resources[i] -= np.random.randint(0, 3, self.num_resources)
-            
+            for j in range(self.num_countries):
+                if self.diplomatic_relations[i, j] > 0:
+                    self.resources[i] += np.random.randint(0, 3, self.num_resources)
+                elif self.diplomatic_relations[i, j] < 0:
+                    self.resources[i] -= np.random.randint(0, 3, self.num_resources)
+
             # Diversify resources based on demand and supply
             resource_focus = np.argmax(self.resources[i])
             self.resources[i][resource_focus] += np.random.randint(1, 4)
-            
+
             # Form strategic alliances
-            for i in range(self.num_countries):
-                for j in range(i+1, self.num_countries):
-                    alliance_chance = np.random.rand()
-                    if alliance_chance > 0.9:
-                        self.alliances[i, j] = 1
-                        self.alliances[j, i] = 1
-                        self.resources[i] += np.random.randint(1, 4, self.num_resources)
-                        self.resources[j] += np.random.randint(1, 4, self.num_resources)
-            
+            for j in range(i+1, self.num_countries):
+                alliance_chance = np.random.rand()
+                if alliance_chance > 0.9:
+                    self.alliances[i, j] = 1
+                    self.alliances[j, i] = 1
+                    self.resources[i] += np.random.randint(1, 4, self.num_resources)
+                    self.resources[j] += np.random.randint(1, 4, self.num_resources)
+
             # Introduce economic model factors like inflation
             inflation_factor = self.inflation_rates[i] / 100
             self.resources[i] = self.resources[i] * (1 + inflation_factor)
-            
+
             # Introduce population dynamics
             population_growth = np.random.uniform(0.5, 1.5)
             self.population[i] = int(self.population[i] * (1 + population_growth / 100))
             self.resources[i] -= self.population[i] // 10
+
 
     def run_simulation(self, iterations, q_values):
         for t in range(iterations):
